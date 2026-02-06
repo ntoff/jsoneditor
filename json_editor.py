@@ -1,6 +1,7 @@
 import json
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+import os
 
 class JsonEditor:
     def __init__(self, root):
@@ -14,6 +15,10 @@ class JsonEditor:
         self.current_editing_field = None
         self.editing_entry = None
         self.original_value = None
+
+        # Load settings
+        self.settings_file = "settings.json"
+        self.load_settings()
 
         # Create menu
         menubar = tk.Menu(root)
@@ -85,20 +90,58 @@ class JsonEditor:
         self.editing_frame = tk.Frame(root)
         self.editing_frame.pack_forget()
 
+        # Load last opened file if exists and is valid
+        if hasattr(self, 'last_file_path') and self.last_file_path:
+            if os.path.exists(self.last_file_path):
+                self.load_file(self.last_file_path)
+            else:
+                # File doesn't exist, clear the last file path
+                self.last_file_path = None
+                self.save_settings()
+
+        # Bind window close event
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def load_settings(self):
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, 'r') as f:
+                    settings = json.load(f)
+                    self.last_file_path = settings.get('last_file_path')
+            else:
+                self.last_file_path = None
+        except Exception as e:
+            print(f"Failed to load settings: {e}")
+            self.last_file_path = None
+
+    def save_settings(self):
+        try:
+            settings = {
+                'last_file_path': getattr(self, 'current_file_path', None)
+            }
+            with open(self.settings_file, 'w') as f:
+                json.dump(settings, f, indent=4)
+        except Exception as e:
+            print(f"Failed to save settings: {e}")
+
+    def load_file(self, file_path):
+        try:
+            with open(file_path, 'r') as f:
+                self.current_file_path = file_path
+                self.data = json.load(f)
+            self.populate_tree()
+            self.root.title(f"SCUM parameters.json Editor - {file_path}")
+            self.save_settings()  # Save the path after successful loading
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open file: {e}")
+
     def open_file(self):
         file_path = filedialog.askopenfilename(
             title="Open JSON File",
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
         )
         if file_path:
-            try:
-                with open(file_path, 'r') as f:
-                    self.current_file_path = file_path
-                    self.data = json.load(f)
-                self.populate_tree()
-                self.root.title(f"SCUM parameters.json Editor - {file_path}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to open file: {e}")
+            self.load_file(file_path)
 
     def populate_tree(self):
         self.tree.delete(*self.tree.get_children())
@@ -146,6 +189,7 @@ class JsonEditor:
             with open(self.current_file_path, 'w') as f:
                 json.dump(self.data, f, indent=4)
             messagebox.showinfo("Success", "File saved successfully!")
+            self.save_settings()  # Save settings after successful save
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save file: {e}")
 
@@ -239,6 +283,13 @@ class JsonEditor:
             self.cancel_edit()
         elif event.keysym == "Return" and self.editing_entry:
             self.apply_edit()
+
+    def on_closing(self):
+        # Clear last file path if no file was opened or saved
+        if not hasattr(self, 'current_file_path') or not self.current_file_path:
+            self.last_file_path = None
+            self.save_settings()
+        self.root.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
