@@ -1,95 +1,24 @@
 import json
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+import sys
 import os
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QMenuBar, QMenu, QAction, 
+                           QFrame, QTreeWidget, QTreeWidgetItem, QHeaderView,
+                           QFileDialog, QMessageBox, QHBoxLayout, QVBoxLayout,
+                           QLabel, QLineEdit, QPushButton, QScrollArea, QSizePolicy, QTextEdit, QAbstractItemView)
+from PyQt5.QtCore import Qt
 
-class JsonEditor:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("SCUM parameters.json Editor")
-        self.root.geometry("800x600")
-        self.root.state('zoomed')
-
-        self.data = None
-        self.current_editing_item = None
-        self.current_editing_field = None
-        self.editing_entry = None
-        self.original_value = None
-
-        # Load settings
+class JsonEditor(QMainWindow):
+    def __init__(self):
         self.settings_file = "settings.json"
+        super().__init__()
+        self.initUI()
+        self.data = None
+        self.current_file_path = None
         self.load_settings()
-
-        # Create menu
-        menubar = tk.Menu(root)
-        root.config(menu=menubar)
-
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Open", command=self.open_file)
-        file_menu.add_command(label="Save", command=self.save_file)
-        file_menu.add_command(label="Save As...", command=self.save_as_file)
-
-        # Create treeview for displaying data
-        self.tree_frame = tk.Frame(root)
-        self.tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        self.tree = ttk.Treeview(self.tree_frame, columns=("Id", "IsDisabledForSpawning", "AllowedLocations",
-                                                           "CooldownPerSquadMemberMin", "CooldownPerSquadMemberMax",
-                                                           "CooldownGroup", "Variations", "ShouldOverrideInitialAndRandomUsage",
-                                                           "InitialUsageOverride", "RandomUsageOverrideUsage"),
-                                 show="headings", height=20)
-
-        # Define headings
-        self.tree.heading("Id", text="Id")
-        self.tree.heading("IsDisabledForSpawning", text="Disabled")
-        self.tree.heading("AllowedLocations", text="AllowedLocations")
-        self.tree.heading("CooldownPerSquadMemberMin", text="CooldownPerSquadMemberMin")
-        self.tree.heading("CooldownPerSquadMemberMax", text="CooldownPerSquadMemberMax")
-        self.tree.heading("CooldownGroup", text="CooldownGroup")
-        self.tree.heading("Variations", text="Variations")
-        self.tree.heading("ShouldOverrideInitialAndRandomUsage", text="ShouldOverrideInitialAndRandomUsage")
-        self.tree.heading("InitialUsageOverride", text="InitialUsageOverride")
-        self.tree.heading("RandomUsageOverrideUsage", text="RandomUsageOverrideUsage")
-
-        # Set column widths
-        self.tree.column("Id", width=250, minwidth=250, stretch=tk.NO)
-        self.tree.column("IsDisabledForSpawning", anchor='center', width=60, minwidth=60, stretch=tk.NO)
-        self.tree.column("AllowedLocations", width=210, minwidth=210, stretch=tk.NO)
-        self.tree.column("CooldownPerSquadMemberMin", anchor='center', width=180, minwidth=180, stretch=tk.NO)
-        self.tree.column("CooldownPerSquadMemberMax", anchor='center', width=180, minwidth=180, stretch=tk.NO)
-        self.tree.column("CooldownGroup", width=200, minwidth=200, stretch=tk.NO)
-        self.tree.column("Variations", width=280, minwidth=280, stretch=tk.NO)
-        self.tree.column("ShouldOverrideInitialAndRandomUsage", anchor='center', width=220, minwidth=220, stretch=tk.NO)
-        self.tree.column("InitialUsageOverride", anchor='center', width=120, minwidth=120, stretch=tk.NO)
-        self.tree.column("RandomUsageOverrideUsage", anchor='center', width=180, minwidth=180, stretch=tk.NO)
-
-        # Add vertical scrollbar
-        vsb = ttk.Scrollbar(self.tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
-
-        # Add horizontal scrollbar
-        hsb = ttk.Scrollbar(self.tree_frame, orient=tk.HORIZONTAL, command=self.tree.xview)
-        self.tree.configure(xscrollcommand=hsb.set)
-
-        # Grid layout for scrollbars and treeview
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
-
-        # Configure grid weights
-        self.tree_frame.grid_rowconfigure(0, weight=1)
-        self.tree_frame.grid_columnconfigure(0, weight=1)
-
-        # Bind events
-        self.tree.bind('<<TreeviewSelect>>', self.on_tree_select)
-        self.tree.bind("<Double-1>", self.on_double_click)
-        self.tree.bind("<Key>", self.on_key_press)
-
-        # Set up editing entry
-        self.editing_frame = tk.Frame(root)
-        self.editing_frame.pack_forget()
-
+        self.filtered_items = []
+        self.current_filtered_index = -1
+        
         # Load last opened file if exists and is valid
         if hasattr(self, 'last_file_path') and self.last_file_path:
             if os.path.exists(self.last_file_path):
@@ -99,8 +28,134 @@ class JsonEditor:
                 self.last_file_path = None
                 self.save_settings()
 
-        # Bind window close event
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    def initUI(self):
+        self.setWindowTitle("SCUM parameters.json Editor")
+        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowState(Qt.WindowMaximized)
+
+        # Load stylesheet
+        self.load_stylesheet()
+
+        # Create menu bar
+        menubar = self.menuBar()
+        file_menu = menubar.addMenu('File')
+        
+        open_action = QAction('Open', self)
+        open_action.triggered.connect(self.open_file)
+        file_menu.addAction(open_action)
+        
+        save_action = QAction('Save', self)
+        save_action.triggered.connect(self.save_file)
+        file_menu.addAction(save_action)
+        
+        save_as_action = QAction('Save As...', self)
+        save_as_action.triggered.connect(self.save_as_file)
+        file_menu.addAction(save_as_action)
+
+        # Create filter frame
+        filter_frame = QFrame(self)
+        filter_frame.setFrameShape(QFrame.StyledPanel)
+        filter_frame.setFrameShadow(QFrame.Raised)
+        filter_layout = QHBoxLayout(filter_frame)
+        filter_layout.setAlignment(Qt.AlignLeft)  # Align all widgets to the left
+        
+        filter_label = QLabel("Find ID:")
+        self.filter_input = QLineEdit()
+        self.filter_input.setMaxLength(50)  # Limit to 50 characters
+        self.filter_input.setMinimumWidth(200)  # Set minimum width
+        self.filter_input.setMaximumWidth(200)  # Set maximum width
+        self.filter_input.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.filter_input.textChanged.connect(self.filter_items)
+        
+        prev_button = QPushButton("Previous")
+        prev_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        prev_button.clicked.connect(self.previous_match)
+        
+        next_button = QPushButton("Next")
+        next_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        next_button.clicked.connect(self.next_match)
+        
+        self.counter_label = QLabel("0/0")
+        self.counter_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        
+        filter_layout.addWidget(filter_label)
+        filter_layout.addWidget(self.filter_input)
+        filter_layout.addWidget(prev_button)
+        filter_layout.addWidget(next_button)
+        filter_layout.addWidget(self.counter_label)
+        
+        # Set minimum size for filter frame and make it not stretch
+        filter_frame.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        filter_frame.setFixedHeight(50)  # Set fixed height to prevent resizing
+        
+        # Create treeview
+        tree_frame = QFrame(self)
+        tree_layout = QVBoxLayout(tree_frame)
+        
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels([
+            "Id", "IsDisabledForSpawning", "AllowedLocations",
+            "CooldownPerSquadMemberMin", "CooldownPerSquadMemberMax",
+            "CooldownGroup", "Variations", "ShouldOverrideInitialAndRandomUsage",
+            "InitialUsageOverride", "RandomUsageOverrideUsage"
+        ])
+    
+        # Set column widths
+        column_widths = [250, 60, 210, 180, 180, 200, 258, 220, 120, 180]
+        for i, width in enumerate(column_widths):
+            self.tree.setColumnWidth(i, width)
+        
+        # Set header options
+        header = self.tree.header()
+        header.setStretchLastSection(True)
+        header.setSectionResizeMode(QHeaderView.Interactive)
+        
+        # Fix: Set tree widget properties to prevent selection shift
+        self.tree.setFrameStyle(QFrame.NoFrame)  # Remove frame to prevent padding
+        self.tree.setIndentation(0)  # Remove indentation
+        self.tree.setRootIsDecorated(False)  # Remove tree decoration
+        self.tree.setUniformRowHeights(True)  # Ensure consistent row heights
+        
+        # Create scroll area for tree
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.tree)
+        
+        tree_layout.addWidget(scroll_area)
+        
+        # Layout
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(filter_frame)
+        main_layout.addWidget(tree_frame)
+        main_layout.setStretch(1, 1)  # Only the tree area should stretch
+        
+        central_widget = QFrame()
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+        
+        # Connect signals
+        self.tree.itemSelectionChanged.connect(self.on_tree_select)
+        self.tree.itemDoubleClicked.connect(self.on_double_click)
+        
+        # Load window state from settings
+        self.load_window_state()
+
+    def load_stylesheet(self):
+        """Load the stylesheet from style.css file if it exists"""
+        try:
+            # Get the directory where the executable is located
+            exe_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+            style_file = os.path.join(exe_dir, "style.css")
+            
+            if os.path.exists(style_file):
+                with open(style_file, 'r') as f:
+                    style = f.read()
+                    self.setStyleSheet(style)
+            # If style.css doesn't exist, don't set any stylesheet
+            # This allows Qt to use default colors
+        except Exception as e:
+            print(f"Failed to load stylesheet: {e}")
+            # Don't set any fallback - let Qt use default styling
 
     def load_settings(self):
         try:
@@ -108,21 +163,65 @@ class JsonEditor:
                 with open(self.settings_file, 'r') as f:
                     settings = json.load(f)
                     self.last_file_path = settings.get('last_file_path')
-            else:
-                self.last_file_path = None
+                    # Load window geometry and state
+                    if 'geometry' in settings and settings['geometry']:
+                        geometry = QtCore.QByteArray.fromHex(settings['geometry'].encode('utf-8'))
+                        self.restoreGeometry(geometry)
+                    if 'window_state' in settings and settings['window_state']:
+                        window_state = QtCore.QByteArray.fromHex(settings['window_state'].encode('utf-8'))
+                        self.restoreState(window_state)
+                    if 'column_widths' in settings:
+                        self.load_column_widths(settings['column_widths'])
         except Exception as e:
             print(f"Failed to load settings: {e}")
             self.last_file_path = None
 
     def save_settings(self):
         try:
+            # Convert QByteArray to bytes for JSON serialization
+            geometry = self.saveGeometry()
+            window_state = self.saveState()
+            
             settings = {
-                'last_file_path': getattr(self, 'current_file_path', None)
+                'last_file_path': getattr(self, 'current_file_path', None),
+                'geometry': geometry.toHex().data().decode('utf-8') if not geometry.isNull() else None,
+                'window_state': window_state.toHex().data().decode('utf-8') if not window_state.isNull() else None,
+                'column_widths': self.save_column_widths()
             }
             with open(self.settings_file, 'w') as f:
                 json.dump(settings, f, indent=4)
         except Exception as e:
             print(f"Failed to save settings: {e}")
+
+    def save_column_widths(self):
+        """Save column widths from tree header"""
+        widths = []
+        header = self.tree.header()
+        for i in range(header.count()):
+            widths.append(header.sectionSize(i))
+        return widths
+
+    def load_column_widths(self, widths):
+        """Load column widths into tree header"""
+        header = self.tree.header()
+        for i, width in enumerate(widths):
+            if i < header.count():
+                header.resizeSection(i, width)
+
+    def load_window_state(self):
+        """Load window state (position, size, maximized status)"""
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, 'r') as f:
+                    settings = json.load(f)
+                    if 'geometry' in settings and settings['geometry']:
+                        geometry = QtCore.QByteArray.fromHex(settings['geometry'].encode('utf-8'))
+                        self.restoreGeometry(geometry)
+                    if 'window_state' in settings and settings['window_state']:
+                        window_state = QtCore.QByteArray.fromHex(settings['window_state'].encode('utf-8'))
+                        self.restoreState(window_state)
+        except Exception as e:
+            print(f"Failed to load window state: {e}")
 
     def load_file(self, file_path):
         try:
@@ -130,74 +229,81 @@ class JsonEditor:
                 self.current_file_path = file_path
                 self.data = json.load(f)
             self.populate_tree()
-            self.root.title(f"SCUM parameters.json Editor - {file_path}")
+            self.setWindowTitle(f"SCUM parameters.json Editor - {file_path}")
             self.save_settings()  # Save the path after successful loading
+            # Update counter after loading file
+            self.update_counter()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open file: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to open file: {e}")
 
     def open_file(self):
-        file_path = filedialog.askopenfilename(
-            title="Open JSON File",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        # Get the directory of the last opened file or default to home directory
+        if hasattr(self, 'last_file_path') and self.last_file_path:
+            directory = os.path.dirname(self.last_file_path)
+        else:
+            directory = os.path.expanduser("~")
+            
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Open JSON File", directory, "JSON files (*.json);;All files (*)"
         )
         if file_path:
             self.load_file(file_path)
+            # Save the last used directory
+            self.last_file_path = file_path
+            self.save_settings()
 
     def populate_tree(self):
-        self.tree.delete(*self.tree.get_children())
+        self.tree.clear()
         if self.data and "Parameters" in self.data:
             for item in self.data["Parameters"]:
-                values = (
-                    item["Id"],
-                    str(item["IsDisabledForSpawning"]).lower(),
-                    str(item["AllowedLocations"]),
-                    str(item["CooldownPerSquadMemberMin"]),
-                    str(item["CooldownPerSquadMemberMax"]),
-                    item["CooldownGroup"],
-                    str(item["Variations"]),
-                    str(item["ShouldOverrideInitialAndRandomUsage"]).lower(),
-                    str(item["InitialUsageOverride"]),
-                    str(item["RandomUsageOverrideUsage"])
-                )
-                self.tree.insert("", tk.END, values=values)
+                tree_item = QTreeWidgetItem()
+                tree_item.setText(0, str(item["Id"]))
+                tree_item.setText(1, str(item["IsDisabledForSpawning"]).lower())
+                tree_item.setText(2, str(item["AllowedLocations"]))
+                tree_item.setText(3, str(item["CooldownPerSquadMemberMin"]))
+                tree_item.setText(4, str(item["CooldownPerSquadMemberMax"]))
+                tree_item.setText(5, str(item["CooldownGroup"]))
+                tree_item.setText(6, str(item["Variations"]))
+                tree_item.setText(7, str(item["ShouldOverrideInitialAndRandomUsage"]).lower())
+                tree_item.setText(8, str(item["InitialUsageOverride"]))
+                tree_item.setText(9, str(item["RandomUsageOverrideUsage"]))
+                self.tree.addTopLevelItem(tree_item)
 
     def save_file(self):
         if not self.data:
             return
 
         # Update data from tree
-        items = self.tree.get_children()
-        self.data["Parameters"] = []
-
-        for item in items:
-            values = self.tree.item(item, "values")
+        items = []
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
             param = {
-                "Id": values[0],
-                "IsDisabledForSpawning": values[1].lower() == "true",
-                "AllowedLocations": self.parse_list(values[2]),
-                "CooldownPerSquadMemberMin": int(values[3]) if values[3] else 0,
-                "CooldownPerSquadMemberMax": int(values[4]) if values[4] else 0,
-                "CooldownGroup": values[5],
-                "Variations": self.parse_list(values[6]),
-                "ShouldOverrideInitialAndRandomUsage": values[7].lower() == "true",
-                "InitialUsageOverride": int(values[8]) if values[8] else 0,
-                "RandomUsageOverrideUsage": int(values[9]) if values[9] else 0
+                "Id": item.text(0),
+                "IsDisabledForSpawning": item.text(1).lower() == "true",
+                "AllowedLocations": self.parse_list(item.text(2)),
+                "CooldownPerSquadMemberMin": int(item.text(3)) if item.text(3) else 0,
+                "CooldownPerSquadMemberMax": int(item.text(4)) if item.text(4) else 0,
+                "CooldownGroup": item.text(5),
+                "Variations": self.parse_list(item.text(6)),
+                "ShouldOverrideInitialAndRandomUsage": item.text(7).lower() == "true",
+                "InitialUsageOverride": int(item.text(8)) if item.text(8) else 0,
+                "RandomUsageOverrideUsage": int(item.text(9)) if item.text(9) else 0
             }
-            self.data["Parameters"].append(param)
+            items.append(param)
+
+        self.data["Parameters"] = items
 
         try:
             with open(self.current_file_path, 'w') as f:
                 json.dump(self.data, f, indent=4)
-            messagebox.showinfo("Success", "File saved successfully!")
+            QMessageBox.information(self, "Success", "File saved successfully!")
             self.save_settings()  # Save settings after successful save
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save file: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to save file: {e}")
 
     def save_as_file(self):
-        file_path = filedialog.asksaveasfilename(
-            title="Save JSON File",
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save JSON File", "", "JSON files (*.json);;All files (*)"
         )
         if file_path:
             self.current_file_path = file_path
@@ -211,87 +317,165 @@ class JsonEditor:
             return [item.strip().strip("'\"") for item in items if item.strip()]
         return []
 
-    def on_tree_select(self, event):
-        return
+    def on_tree_select(self):
+        pass
 
-    def on_double_click(self, event):
-        item = self.tree.identify_row(event.y)
-        column = self.tree.identify_column(event.x)
-        column_index = int(column.replace("#", "")) - 1
-
-        if column_index == 0 or column_index == 6:  # column is not editable
+    def on_double_click(self, item, column):
+        # Don't allow editing ID column
+        if column == 0:
             return
-
-        if column_index == 1 or column_index == 7:
-            current_value = self.tree.item(item, "values")[column_index]
+            
+        # Handle boolean columns
+        if column == 1 or column == 7:
+            current_value = item.text(column)
             new_value = "false" if current_value == "true" else "true"
-            values = list(self.tree.item(item, "values"))
-            values[column_index] = new_value
-            self.tree.item(item, values=values)
+            item.setText(column, new_value)
             return
+            
+        # For other columns, show edit dialog
+        value = item.text(column)
+        
+        # Special handling for AllowedLocations and Variations columns
+        if column == 2 or column == 6:
+            # Create a dialog with a multi-line text edit for editing
+            dialog = QtWidgets.QDialog(self)
+            dialog.setWindowTitle(f"Edit {self.tree.headerItem().text(column)}")
+            dialog.setModal(True)
+            
+            layout = QVBoxLayout()
+            
+            # Create text edit with word wrap
+            text_edit = QTextEdit()
+            text_edit.setPlainText(value)
+            text_edit.setWordWrapMode(QtGui.QTextOption.WrapAnywhere)
+            text_edit.setAcceptRichText(False)
+            
+            layout.addWidget(text_edit)
+            
+            # Buttons
+            button_layout = QHBoxLayout()
+            ok_button = QPushButton("OK")
+            cancel_button = QPushButton("Cancel")
+            
+            ok_button.clicked.connect(dialog.accept)
+            cancel_button.clicked.connect(dialog.reject)
+            
+            button_layout.addWidget(ok_button)
+            button_layout.addWidget(cancel_button)
+            layout.addLayout(button_layout)
+            
+            dialog.setLayout(layout)
+            dialog.resize(500, 300)
+            
+            if dialog.exec_() == QtWidgets.QDialog.Accepted:
+                new_value = text_edit.toPlainText()
+                item.setText(column, new_value)
+        else:
+            # For other columns, use regular input dialog
+            new_value, ok = QtWidgets.QInputDialog.getText(self, "Edit Value", "Enter new value:", text=value)
+            if ok:
+                item.setText(column, new_value)
 
-        # Get the item values
-        values = self.tree.item(item, "values")
-        self.original_value = values[column_index]
+    def filter_items(self, text):
+        filter_text = text.lower()
+        
+        # Get all items
+        all_items = []
+        for i in range(self.tree.topLevelItemCount()):
+            all_items.append(self.tree.topLevelItem(i))
+        
+        self.filtered_items = []
+        
+        # Filter items by ID (case insensitive)
+        for item in all_items:
+            item_id = item.text(0).lower()
+            if filter_text in item_id:
+                self.filtered_items.append(item)
+        
+        # Reset counter
+        self.current_filtered_index = -1
+        self.update_counter()
+        
+        # Clear selection
+        self.tree.clearSelection()
+        
+        # If there's a filter, select first match and scroll to it
+        if self.filtered_items and filter_text:
+            # Temporarily disable selection change signals to prevent flickering
+            self.tree.itemSelectionChanged.disconnect(self.on_tree_select)
+            
+            # Use a more controlled selection approach
+            if self.filtered_items:
+                self.tree.setCurrentItem(self.filtered_items[0])
+                # Force update without causing layout shifts
+                self.tree.scrollToItem(self.filtered_items[0], QAbstractItemView.PositionAtCenter)
+                self.current_filtered_index = 0
+                self.update_counter()
+            
+            # Reconnect the signal
+            self.tree.itemSelectionChanged.connect(self.on_tree_select)
 
-        # Position editing entry
-        x, y, width, height = self.tree.bbox(item, column)
-        self.editing_entry = tk.Entry(self.tree_frame)
-        self.editing_entry.place(x=x, y=y, width=width, height=height)
-        self.editing_entry.insert(0, self.original_value)
-        self.editing_entry.focus_set()
+    def update_counter(self):
+        # Get total items count
+        total_items = self.tree.topLevelItemCount()
+        if self.filtered_items:
+            self.counter_label.setText(f"{self.current_filtered_index + 1}/{len(self.filtered_items)}")
+        else:
+            self.counter_label.setText(f"0/{total_items}")
 
-        self.current_editing_item = item
-        self.current_editing_field = column_index
+    def next_match(self):
+        if not self.filtered_items:
+            return
+            
+        if self.current_filtered_index < len(self.filtered_items) - 1:
+            self.current_filtered_index += 1
+        else:
+            self.current_filtered_index = 0  # Loop back to first
+            
+        item = self.filtered_items[self.current_filtered_index]
+        
+        # Temporarily disable selection change signals to prevent flickering
+        self.tree.itemSelectionChanged.disconnect(self.on_tree_select)
+        
+        # Use a more controlled approach to avoid layout shifts
+        self.tree.clearSelection()
+        self.tree.setCurrentItem(item)
+        self.tree.scrollToItem(item, QAbstractItemView.PositionAtCenter)
+        self.update_counter()
+        
+        # Reconnect the signal
+        self.tree.itemSelectionChanged.connect(self.on_tree_select)
 
-        # Bind events to editing entry
-        self.editing_entry.bind("<Return>", self.apply_edit)
-        self.editing_entry.bind("<Escape>", self.cancel_edit)
-        self.editing_entry.bind("<FocusOut>", self.apply_edit)
+    def previous_match(self):
+        if not self.filtered_items:
+            return
+            
+        if self.current_filtered_index > 0:
+            self.current_filtered_index -= 1
+        else:
+            self.current_filtered_index = len(self.filtered_items) - 1  # Loop to last
+            
+        item = self.filtered_items[self.current_filtered_index]
+        
+        # Temporarily disable selection change signals to prevent flickering
+        self.tree.itemSelectionChanged.disconnect(self.on_tree_select)
+        
+        # Use a more controlled approach to avoid layout shifts
+        self.tree.clearSelection()
+        self.tree.setCurrentItem(item)
+        self.tree.scrollToItem(item, QAbstractItemView.PositionAtCenter)
+        self.update_counter()
+        
+        # Reconnect the signal
+        self.tree.itemSelectionChanged.connect(self.on_tree_select)
 
-    def apply_edit(self, event=None):
-        if self.editing_entry and self.current_editing_item and self.current_editing_field:
-            new_value = self.editing_entry.get()
-            # Update the treeview
-            values = self.tree.item(self.current_editing_item, "values")
-            values = list(values)
-            values[self.current_editing_field] = new_value
-            self.tree.item(self.current_editing_item, values=values)
-
-            # Destroy editing entry
-            self.editing_entry.destroy()
-            self.editing_entry = None
-            self.current_editing_item = None
-            self.current_editing_field = None
-
-    def cancel_edit(self, event=None):
-        if self.editing_entry and self.current_editing_item and self.current_editing_field:
-            # Restore original value
-            values = self.tree.item(self.current_editing_item, "values")
-            values = list(values)
-            values[self.current_editing_field] = self.original_value
-            self.tree.item(self.current_editing_item, values=values)
-
-            # Destroy editing entry
-            self.editing_entry.destroy()
-            self.editing_entry = None
-            self.current_editing_item = None
-            self.current_editing_field = None
-
-    def on_key_press(self, event):
-        if event.keysym == "Escape" and self.editing_entry:
-            self.cancel_edit()
-        elif event.keysym == "Return" and self.editing_entry:
-            self.apply_edit()
-
-    def on_closing(self):
-        # Clear last file path if no file was opened or saved
-        if not hasattr(self, 'current_file_path') or not self.current_file_path:
-            self.last_file_path = None
-            self.save_settings()
-        self.root.destroy()
+    def closeEvent(self, event):
+        """Save settings when closing the application"""
+        self.save_settings()
+        event.accept()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = JsonEditor(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    editor = JsonEditor()
+    editor.show()
+    sys.exit(app.exec_())

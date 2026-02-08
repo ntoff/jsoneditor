@@ -1,0 +1,219 @@
+/*
+ * Dark Mode Style Sheet for SCUM parameters.json Editor
+ * Place this file beside the executable to customize the theme
+ */
+
+QMainWindow {
+    background-color: #2b2b2b;
+    color: white;
+}
+
+QMenuBar {
+    background-color: #353535;
+    color: white;
+    border-bottom: 1px solid #555555;
+}
+
+QMenuBar::item {
+    background-color: #353535;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 3px;
+}
+
+QMenuBar::item:selected {
+    background-color: #444444;
+}
+
+QMenu {
+    background-color: #353535;
+    color: white;
+    border: 1px solid #555555;
+    padding: 4px;
+}
+
+QMenu::item {
+    padding: 4px 20px;
+    border-radius: 3px;
+}
+
+QMenu::item:selected {
+    background-color: #4a90d9;
+    color: white;
+}
+
+QTreeWidget {
+    background-color: #2b2b2b;
+    color: white;
+    alternate-background-color: #353535;
+    selection-background-color: #4a90d9;
+    selection-color: white;
+    border: 1px solid #555555;
+}
+
+QTreeWidget::item {
+    padding: 4px;
+}
+
+QTreeWidget::item:selected {
+    background-color: #4a90d9;
+    color: white;
+    padding: 0px; /* Remove default padding */
+    margin: 0px; /* Remove default margin */
+    border: none; /* Optional: remove border if needed */
+}
+
+QTreeWidget::item {
+    padding: 4px;
+    margin: 0;
+}
+
+QHeaderView::section {
+    background-color: #353535;
+    color: white;
+    border: 1px solid #555555;
+    padding: 4px;
+    font-weight: bold;
+}
+
+QHeaderView::section:pressed {
+    background-color: #444444;
+}
+
+QLineEdit {
+    background-color: #353535;
+    color: white;
+    border: 1px solid #555555;
+    padding: 4px;
+    border-radius: 3px;
+}
+
+QLineEdit:focus {
+    border: 1px solid #4a90d9;
+}
+
+QPushButton {
+    background-color: #353535;
+    color: white;
+    border: 1px solid #555555;
+    padding: 6px 12px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #444444;
+}
+
+QPushButton:pressed {
+    background-color: #4a90d9;
+}
+
+QLabel {
+    color: white;
+}
+
+/* Scroll bar styling */
+QScrollBar:vertical {
+    background: #2b2b2b;
+    width: 18px;
+    border: 1px solid #555555;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical {
+    background: #444444;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #555555;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    background: #353535;
+    border: 1px solid #555555;
+    height: 18px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+    border-radius: 4px;
+}
+
+QScrollBar::add-line:vertical:hover, QScrollBar::sub-line:vertical:hover {
+    background: #444444;
+}
+
+QScrollBar::sub-line:vertical {
+    subcontrol-position: top;
+}
+
+QScrollBar::add-line:vertical {
+    subcontrol-position: bottom;
+}
+
+QScrollBar:horizontal {
+    background: #2b2b2b;
+    height: 18px;
+    border: 1px solid #555555;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #444444;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    min-width: 20px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #555555;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    background: #353535;
+    border: 1px solid #555555;
+    width: 18px;
+    subcontrol-position: left;
+    subcontrol-origin: margin;
+    border-radius: 4px;
+}
+
+QScrollBar::add-line:horizontal:hover, QScrollBar::sub-line:horizontal:hover {
+    background: #444444;
+}
+
+QScrollBar::sub-line:horizontal {
+    subcontrol-position: left;
+}
+
+QScrollBar::add-line:horizontal {
+    subcontrol-position: right;
+}
+
+QFrame {
+    background-color: #2b2b2b;
+    border: 1px solid #555555;
+}
+
+QDialog {
+    background-color: #2b2b2b;
+}
+
+QTextEdit {
+    background-color: #353535;
+    color: white;
+    border: 1px solid #555555;
+    border-radius: 3px;
+}
+
+QTextEdit:focus {
+    border: 1px solid #4a90d9;
+}
+
+/* Custom styling for filter frame to reduce padding */
+#filterFrame {
+    padding: 2px;
+    margin: 2px;
+}
